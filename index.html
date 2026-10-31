@@ -1,0 +1,998 @@
+<!doctype html>
+<html lang="ro">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="description" content="Chestionar preoperator: medicamente care se opresc inainte de interventiile chirurgicale cu anestezie generala.">
+<title>Chestionar preoperator</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&family=IBM+Plex+Serif:wght@500;600&family=IBM+Plex+Mono:wght@500&display=swap">
+<style>
+:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+html{scroll-padding-top:env(safe-area-inset-top,0px);-webkit-text-size-adjust:100%}
+body{margin:0;padding:0}
+img{max-width:100%}
+[hidden]{display:none!important}
+</style>
+</head>
+<body>
+<style>
+/* Layout: one scrolling column of tappable medication rows, grouped by drug class,
+   with a sticky counter bar and a summary that exports a locked PDF. */
+:root{
+  --bg:#F2F5F8; --surface:#FFFFFF; --surface-2:#FAFBFC;
+  --ink:#152230; --muted:#5B6E7D; --line:#D6DFE7;
+  --accent:#1F4E79; --accent-ink:#1F4E79; --accent-soft:#E4EEF7; --on-accent:#FFFFFF;
+  --band:#1F4E79; --on-band:#FFFFFF; --on-band-mute:#C6DBEF;
+  --alert:#A33A32; --alert-bg:#FBEDEB; --alert-line:#E8C4BF;
+  --doc:#2E6B5E; --doc-soft:#E3F1ED; --doc-line:#BEDCD3;
+  --font-head:"IBM Plex Serif",Georgia,"Times New Roman",serif;
+  --font-body:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --font-mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+  --r:10px;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0D151E; --surface:#16202C; --surface-2:#1B2733;
+  --ink:#E4EBF2; --muted:#94A6B5; --line:#27384A;
+  --accent:#82B4E2; --accent-ink:#A8CCEE; --accent-soft:#17293B; --on-accent:#0D151E;
+  --band:#11202E; --on-band:#E4EBF2; --on-band-mute:#90A7BC;
+  --alert:#F0A197; --alert-bg:#2B1715; --alert-line:#4A2825;
+  --doc:#7FC9B4; --doc-soft:#142B26; --doc-line:#27463E;
+  color-scheme:dark;
+}}
+:root[data-theme="dark"]{
+  --bg:#0D151E; --surface:#16202C; --surface-2:#1B2733;
+  --ink:#E4EBF2; --muted:#94A6B5; --line:#27384A;
+  --accent:#82B4E2; --accent-ink:#A8CCEE; --accent-soft:#17293B; --on-accent:#0D151E;
+  --band:#11202E; --on-band:#E4EBF2; --on-band-mute:#90A7BC;
+  --alert:#F0A197; --alert-bg:#2B1715; --alert-line:#4A2825;
+  --doc:#7FC9B4; --doc-soft:#142B26; --doc-line:#27463E;
+  color-scheme:dark;
+}
+
+*{box-sizing:border-box}
+body{
+  background:var(--bg); color:var(--ink);
+  font-family:var(--font-body); font-size:15px; line-height:1.5;
+  -webkit-text-size-adjust:100%;
+}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:20;background:var(--band)}
+
+.wrap{
+  max-width:640px; margin:0 auto;
+  padding-left:max(16px,env(safe-area-inset-left,0px));
+  padding-right:max(16px,env(safe-area-inset-right,0px));
+  padding-block:0 48px;
+}
+
+.masthead{background:var(--band);color:var(--on-band)}
+.masthead .wrap{padding-block:22px 20px}
+.masthead h1{
+  font-family:var(--font-head); font-weight:600; font-size:1.5rem;
+  margin:0 0 6px; line-height:1.2; text-wrap:balance; color:var(--on-band);
+}
+.masthead p{margin:0;font-size:.875rem;line-height:1.45;color:var(--on-band-mute)}
+
+.bar{
+  position:sticky; top:env(safe-area-inset-top,0px); z-index:15;
+  background:var(--surface); border-bottom:1px solid var(--line);
+}
+.bar .wrap{display:flex;align-items:center;gap:10px;padding-block:9px}
+.count{
+  font-family:var(--font-mono); font-size:.8125rem; font-variant-numeric:tabular-nums;
+  background:var(--accent-soft); color:var(--accent-ink);
+  padding:4px 9px; border-radius:999px; white-space:nowrap;
+}
+.bar .spacer{flex:1;min-width:0}
+.linkbtn{
+  background:none;border:1px solid var(--line);color:var(--ink);
+  font:500 .8125rem/1 var(--font-body);padding:8px 11px;border-radius:999px;cursor:pointer;
+}
+.linkbtn:active{background:var(--surface-2)}
+
+.card{
+  background:var(--surface); border:1px solid var(--line);
+  border-radius:var(--r); padding:14px; margin-top:14px;
+}
+.card h2{font-family:var(--font-head);font-weight:600;font-size:1rem;margin:0 0 10px}
+.field{display:flex;flex-direction:column;gap:5px;margin-bottom:11px}
+.field:last-child{margin-bottom:0}
+.field label{font-size:.75rem;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);font-weight:500}
+input[type=text],input[type=date]{
+  width:100%;font:400 1rem/1.3 var(--font-body);color:var(--ink);
+  background:var(--surface-2);border:1px solid var(--line);border-radius:8px;
+  padding:11px 12px;min-height:44px;
+}
+input[type=text]:focus-visible,input[type=date]:focus-visible{
+  outline:2px solid var(--accent);outline-offset:1px;border-color:var(--accent);
+}
+
+.note{
+  margin:10px 0 0;font-size:.8125rem;color:var(--ink);background:var(--accent-soft);
+  border:1px solid var(--line);border-radius:var(--r);padding:11px 12px;line-height:1.5;
+}
+.intro{
+  margin-top:14px;font-size:.875rem;color:var(--muted);
+  border-left:3px solid var(--accent);padding:2px 0 2px 12px;
+}
+
+section{margin-top:26px}
+.shead{display:flex;align-items:baseline;gap:9px;margin-bottom:3px}
+.snum{
+  font-family:var(--font-mono);font-size:.75rem;color:var(--accent-ink);
+  background:var(--accent-soft);border-radius:5px;padding:2px 6px;flex:none;
+}
+.shead h2{font-family:var(--font-head);font-weight:600;font-size:1.0625rem;margin:0;line-height:1.25;text-wrap:balance;min-width:0}
+.ssub{font-size:.8125rem;color:var(--muted);margin:0 0 10px 0}
+
+.rows{display:flex;flex-direction:column;gap:7px}
+.row{
+  display:grid;grid-template-columns:26px 1fr;gap:11px;align-items:start;
+  background:var(--surface);border:1px solid var(--line);border-left:3px solid var(--line);
+  border-radius:var(--r);padding:12px 13px;cursor:pointer;
+  -webkit-tap-highlight-color:transparent;
+}
+.row:has(input:checked){background:var(--accent-soft);border-color:var(--accent);border-left-color:var(--accent)}
+.row:has(input:focus-visible){outline:2px solid var(--accent);outline-offset:2px}
+.row input{position:absolute;opacity:0;width:0;height:0}
+.box{
+  width:26px;height:26px;border:2px solid var(--line);border-radius:7px;
+  background:var(--surface-2);flex:none;margin-top:1px;position:relative;
+}
+/* sibling selector first, so the tick works even where :has() is unsupported */
+.row input:checked + .box{background:var(--accent);border-color:var(--accent)}
+.box::after{
+  content:"";position:absolute;left:8px;top:3px;width:6px;height:12px;
+  border:solid var(--on-accent);border-width:0 2.5px 2.5px 0;transform:rotate(42deg) scale(.4);
+  opacity:0;transition:opacity .12s ease,transform .12s ease;
+}
+.row input:checked + .box::after{opacity:1;transform:rotate(42deg) scale(1)}
+.rtext{min-width:0;display:block}
+.rname,.rbrand,.rstop,.rback{display:block}
+.rname{font-weight:600;font-size:.9375rem;line-height:1.3}
+.rbrand{font-size:.8125rem;color:var(--muted);margin-top:1px}
+.rstop,.rback{font-size:.8125rem;margin-top:6px;color:var(--ink)}
+.rstop b,.rback b{font-weight:500;color:var(--muted);font-size:.75rem;letter-spacing:.03em;text-transform:uppercase;display:block;margin-bottom:1px}
+
+details.why{margin-top:9px;border-top:1px solid var(--line);padding-top:8px}
+details.why summary{
+  font-size:.8125rem;color:var(--accent-ink);cursor:pointer;list-style:none;
+  padding:4px 0;min-height:30px;display:flex;align-items:center;gap:6px;font-weight:500;
+}
+details.why summary::-webkit-details-marker{display:none}
+details.why summary::before{content:"+";font-family:var(--font-mono);font-size:.9375rem}
+details.why[open] summary::before{content:"\2212"}
+details.why p{margin:2px 0 4px;font-size:.8125rem;color:var(--muted);line-height:1.5}
+
+.doc{
+  background:var(--doc-soft);border:1px solid var(--doc-line);border-radius:var(--r);
+  padding:13px;margin-top:9px;
+}
+.doctag{
+  font-family:var(--font-mono);font-size:.6875rem;letter-spacing:.06em;text-transform:uppercase;
+  color:var(--doc);display:block;margin-bottom:8px;
+}
+.doc .opt{
+  display:grid;grid-template-columns:24px 1fr;gap:10px;align-items:start;
+  padding:9px 0;cursor:pointer;border-top:1px solid var(--doc-line);
+}
+.doc .opt:first-of-type{border-top:none}
+.doc .opt input{position:absolute;opacity:0;width:0;height:0}
+.doc .otext{min-width:0;display:block}
+.doc .dbox{width:24px;height:24px;border:2px solid var(--doc-line);background:var(--surface);border-radius:50%;flex:none;position:relative;margin-top:1px}
+.doc .opt input:checked + .dbox{border-color:var(--doc)}
+.doc .dbox::after{content:"";position:absolute;inset:4px;border-radius:50%;background:var(--doc);opacity:0;transition:opacity .12s}
+.doc .opt input:checked + .dbox::after{opacity:1}
+.doc .otitle{font-weight:600;font-size:.875rem;display:block}
+.doc .obody{font-size:.8125rem;color:var(--muted);margin-top:2px;display:block}
+
+.extra{display:flex;flex-direction:column;gap:8px}
+.extra input{min-height:46px}
+
+.summary{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:15px;margin-top:14px}
+.summary h3{font-family:var(--font-head);font-weight:600;font-size:1rem;margin:0 0 4px}
+.sumgroup{margin-top:12px}
+.sumgroup h4{font-size:.75rem;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);margin:0 0 5px;font-weight:600}
+.sumgroup ul{margin:0;padding-left:18px}
+.sumgroup li{font-size:.875rem;margin-bottom:3px}
+.empty{font-size:.875rem;color:var(--muted);margin:8px 0 0}
+.actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
+.btn{
+  font:600 .875rem/1 var(--font-body);padding:13px 16px;border-radius:9px;
+  border:1px solid var(--accent);background:var(--accent);color:var(--on-accent);
+  cursor:pointer;min-height:46px;flex:1 1 auto;
+}
+.btn.ghost{background:none;color:var(--ink);border-color:var(--line)}
+.btn:active{opacity:.85}
+.toast{font-size:.8125rem;color:var(--doc);margin-top:9px;min-height:18px}
+.hint{font-size:.75rem;color:var(--muted);margin:6px 0 0;line-height:1.45}
+
+.inlinebtn{
+  background:none;border:0;padding:0;color:var(--accent-ink);
+  font:inherit;text-decoration:underline;cursor:pointer;
+}
+#pdfout{margin-top:14px}
+#pdfout .pv{
+  border:1px solid var(--line);border-radius:8px;overflow:hidden;
+  margin-top:10px;background:#fff;display:block;width:100%;
+}
+#pdfout .pvnote{
+  font-size:.8125rem;color:var(--ink);background:var(--doc-soft);
+  border:1px solid var(--doc-line);border-radius:var(--r);padding:11px 12px;line-height:1.5;
+}
+
+.disclaimer{
+  background:var(--alert-bg);border:1px solid var(--alert-line);border-radius:var(--r);
+  padding:13px;margin-top:22px;font-size:.8125rem;line-height:1.5;color:var(--alert);
+}
+.disclaimer b{font-weight:600}
+.foot{font-size:.75rem;color:var(--muted);margin-top:16px;line-height:1.5}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+<header class="masthead"><div class="wrap">
+  <h1>Medicamente de oprit înainte de operație</h1>
+  <p>Bifați tot ce luați, inclusiv ocazional sau fără rețetă. Arătați lista la consultul preanestezic.</p>
+</div></header>
+
+<div class="bar"><div class="wrap">
+  <span class="count" id="count">0 bifate</span>
+  <span class="spacer"></span>
+  <button class="linkbtn" id="toSummary" type="button">Vezi rezumatul</button>
+</div></div>
+
+<main class="wrap">
+
+  <div class="card">
+    <h2>Date pacient</h2>
+    <div class="field"><label for="pname">Nume și prenume</label><input type="text" id="pname" autocomplete="name"></div>
+    <div class="field"><label for="pdate">Data intervenției</label><input type="date" id="pdate"></div>
+    <div class="field"><label for="pdoc">Medic curant / chirurg</label><input type="text" id="pdoc"></div>
+  </div>
+
+  <p class="intro">Nu opriți niciun medicament din proprie inițiativă. Momentul exact al opririi și al reluării se stabilește de chirurg împreună cu medicul anestezist.</p>
+
+<section>
+<div class="shead"><span class="snum">1</span><h2>Agoniști GLP-1 / GIP</h2></div>
+<p class="ssub">Medicamente pentru diabet și pentru scădere în greutate.</p>
+<div class="rows">
+<label class="row" for="m1_0"><input type="checkbox" id="m1_0"><span class="box"></span><span class="rtext"><span class="rname">Semaglutidă</span><span class="rbrand">Ozempic, Wegovy — injectabil săptămânal</span><span class="rstop"><b>Se oprește</b>se stabilește de medicul anestezist</span></span></label>
+<label class="row" for="m1_1"><input type="checkbox" id="m1_1"><span class="box"></span><span class="rtext"><span class="rname">Tirzepatidă</span><span class="rbrand">Mounjaro, Zepbound — injectabil săptămânal</span><span class="rstop"><b>Se oprește</b>se stabilește de medicul anestezist</span></span></label>
+<label class="row" for="m1_2"><input type="checkbox" id="m1_2"><span class="box"></span><span class="rtext"><span class="rname">Dulaglutidă</span><span class="rbrand">Trulicity — injectabil săptămânal</span><span class="rstop"><b>Se oprește</b>se stabilește de medicul anestezist</span></span></label>
+<label class="row" for="m1_3"><input type="checkbox" id="m1_3"><span class="box"></span><span class="rtext"><span class="rname">Liraglutidă</span><span class="rbrand">Victoza, Saxenda — injectabil zilnic</span><span class="rstop"><b>Se oprește</b>se stabilește de medicul anestezist</span></span></label>
+<label class="row" for="m1_4"><input type="checkbox" id="m1_4"><span class="box"></span><span class="rtext"><span class="rname">Semaglutidă orală</span><span class="rbrand">Rybelsus — zilnic</span><span class="rstop"><b>Se oprește</b>se stabilește de medicul anestezist</span></span></label>
+</div>
+<p class="note">Pentru această grupă există două abordări acceptate: fie oprirea medicamentului înainte de operație — de regulă cu 7 zile la formele injectabile săptămânale, sau cu 2 săptămâni dacă sunt luate pentru obezitate, iar formele zilnice se omit în ziua operației; fie continuarea lui, cu o dietă exclusiv lichidă în ultimele 24 de ore. Medicul anestezist alege varianta potrivită pentru dumneavoastră și vă va spune la consultul preanestezic ce aveți de făcut. Până atunci nu modificați nimic din tratament.</p>
+<details class="why"><summary>De ce se oprește</summary><p>Încetinesc golirea stomacului. Alimentele și sucurile gastrice pot rămâne în stomac și pot pătrunde în căile respiratorii la inducerea anesteziei, provocând pneumonie de aspirație.</p></details>
+</section>
+<section>
+<div class="shead"><span class="snum">2</span><h2>Inhibitori SGLT2</h2></div>
+<p class="ssub">„Gliflozinele” — medicamente pentru diabet.</p>
+<div class="rows">
+<label class="row" for="m2_0"><input type="checkbox" id="m2_0"><span class="box"></span><span class="rtext"><span class="rname">Empagliflozin</span><span class="rbrand">Jardiance</span><span class="rstop"><b>Se oprește</b>cu 3 zile înainte</span></span></label>
+<label class="row" for="m2_1"><input type="checkbox" id="m2_1"><span class="box"></span><span class="rtext"><span class="rname">Dapagliflozin</span><span class="rbrand">Forxiga, Farxiga</span><span class="rstop"><b>Se oprește</b>cu 3 zile înainte</span></span></label>
+<label class="row" for="m2_2"><input type="checkbox" id="m2_2"><span class="box"></span><span class="rtext"><span class="rname">Canagliflozin</span><span class="rbrand">Invokana</span><span class="rstop"><b>Se oprește</b>cu 3 zile înainte</span></span></label>
+<label class="row" for="m2_3"><input type="checkbox" id="m2_3"><span class="box"></span><span class="rtext"><span class="rname">Ertugliflozin</span><span class="rbrand">Steglatro</span><span class="rstop"><b>Se oprește</b>cu 4 zile înainte (timp de înjumătățire mai lung)</span></span></label>
+<label class="row" for="m2_4"><input type="checkbox" id="m2_4"><span class="box"></span><span class="rtext"><span class="rname">Empagliflozin + metformin</span><span class="rbrand">Synjardy</span><span class="rstop"><b>Se oprește</b>cu 3 zile înainte</span></span></label>
+<label class="row" for="m2_5"><input type="checkbox" id="m2_5"><span class="box"></span><span class="rtext"><span class="rname">Dapagliflozin + metformin</span><span class="rbrand">Xigduo, Ebymect</span><span class="rstop"><b>Se oprește</b>cu 3 zile înainte</span></span></label>
+</div>
+<details class="why"><summary>De ce se oprește</summary><p>Pe fond de post preoperator pot provoca cetoacidoză euglicemică — acidifierea sângelui chiar la glicemii aparent normale — precum și hipoglicemie.</p></details>
+</section>
+<section>
+<div class="shead"><span class="snum">3</span><h2>Metformin, insulină și alte antidiabetice</h2></div>
+<div class="rows">
+<label class="row" for="m3_0"><input type="checkbox" id="m3_0"><span class="box"></span><span class="rtext"><span class="rname">Metformin</span><span class="rbrand">Siofor, Glucophage, Meguan</span><span class="rstop"><b>Se oprește</b>cu 2 zile înainte</span></span></label>
+<label class="row" for="m3_1"><input type="checkbox" id="m3_1"><span class="box"></span><span class="rtext"><span class="rname">Sulfoniluree</span><span class="rbrand">Amaryl, Diaprel MR, Maninil (glimepiridă, gliclazidă, glibenclamid)</span><span class="rstop"><b>Se oprește</b>se omite doza în ziua operației</span></span></label>
+<label class="row" for="m3_2"><input type="checkbox" id="m3_2"><span class="box"></span><span class="rtext"><span class="rname">Insulină (orice tip)</span><span class="rbrand">Lantus, Toujeo, NovoRapid, Humalog, Levemir</span><span class="rstop"><b>Se oprește</b>schemă personalizată, stabilită cu diabetologul</span></span></label>
+</div>
+<details class="why"><summary>De ce se oprește</summary><p>În ziua operației nu mâncați, iar aceste medicamente pot scădea glicemia periculos de mult. Metforminul are în plus risc de acidoză lactică dacă apar probleme renale în jurul operației.</p></details>
+</section>
+<section>
+<div class="shead"><span class="snum">4</span><h2>Anticoagulante și antiagregante cu acțiune lungă</h2></div>
+<p class="ssub">„Diluante ale sângelui”.</p>
+<div class="rows">
+<label class="row" for="m4_0"><input type="checkbox" id="m4_0"><span class="box"></span><span class="rtext"><span class="rname">Warfarină / Acenocumarol</span><span class="rbrand">Coumadin, Sintrom, Trombostop</span><span class="rstop"><b>Se oprește</b>cu 5–7 zile înainte</span></span></label>
+<label class="row" for="m4_1"><input type="checkbox" id="m4_1"><span class="box"></span><span class="rtext"><span class="rname">Clopidogrel</span><span class="rbrand">Plavix, Trombex</span><span class="rstop"><b>Se oprește</b>cu 7 zile înainte</span></span></label>
+<label class="row" for="m4_2"><input type="checkbox" id="m4_2"><span class="box"></span><span class="rtext"><span class="rname">Ticagrelor</span><span class="rbrand">Brilique, Brilinta</span><span class="rstop"><b>Se oprește</b>cu 7 zile înainte</span></span></label>
+<label class="row" for="m4_3"><input type="checkbox" id="m4_3"><span class="box"></span><span class="rtext"><span class="rname">Prasugrel</span><span class="rbrand">Efient</span><span class="rstop"><b>Se oprește</b>cu 7 zile înainte</span></span></label>
+<label class="row" for="m4_4"><input type="checkbox" id="m4_4"><span class="box"></span><span class="rtext"><span class="rname">Aspirină, inclusiv doze mici</span><span class="rbrand">Aspenter, Thrombo ASS, Aspirin Cardio</span><span class="rstop"><b>Se oprește</b>cu 7 zile înainte — dar dacă aveți stenturi coronariene sau boală coronariană severă, se poate continua; decide chirurgul cu cardiologul</span></span></label>
+</div>
+<details class="why"><summary>De ce se oprește</summary><p>Operația secționează vase mici de sânge, care trebuie să se poată coagula. Aceste medicamente sunt luate însă dintr-un motiv important, de aceea se reiau cât mai curând după operație, la indicația medicului.</p></details>
+</section>
+<section>
+<div class="shead"><span class="snum">5</span><h2>Anticoagulante orale directe</h2></div>
+<p class="ssub">Acțiune scurtă. Intervalul depinde de riscul de sângerare al operației.</p>
+<div class="rows">
+<label class="row" for="m5_0"><input type="checkbox" id="m5_0"><span class="box"></span><span class="rtext"><span class="rname">Apixaban</span><span class="rbrand">Eliquis — 2 doze pe zi</span><span class="rstop"><b>Se oprește</b>conform riscului stabilit de medic</span></span></label>
+<label class="row" for="m5_1"><input type="checkbox" id="m5_1"><span class="box"></span><span class="rtext"><span class="rname">Dabigatran</span><span class="rbrand">Pradaxa — 2 doze pe zi</span><span class="rstop"><b>Se oprește</b>conform riscului stabilit de medic</span></span></label>
+<label class="row" for="m5_2"><input type="checkbox" id="m5_2"><span class="box"></span><span class="rtext"><span class="rname">Rivaroxaban</span><span class="rbrand">Xarelto — o doză pe zi</span><span class="rstop"><b>Se oprește</b>conform riscului stabilit de medic</span></span></label>
+<label class="row" for="m5_3"><input type="checkbox" id="m5_3"><span class="box"></span><span class="rtext"><span class="rname">Edoxaban</span><span class="rbrand">Lixiana — o doză pe zi</span><span class="rstop"><b>Se oprește</b>conform riscului stabilit de medic</span></span></label>
+<label class="row" for="m5_4"><input type="checkbox" id="m5_4"><span class="box"></span><span class="rtext"><span class="rname">Heparine injectabile</span><span class="rbrand">Clexane, Fragmin (enoxaparină, dalteparină)</span><span class="rstop"><b>Se oprește</b>ultima doză cu 12–24 h înainte, conform indicației</span></span></label>
+</div>
+<div class="doc"><span class="doctag">Riscul de sângerare — se bifează de chirurg sau anestezist (ghid ESC, funcție renală normală)</span>
+<label class="opt" for="riscmin"><input type="radio" id="riscmin" name="risc"><span class="dbox"></span><span class="otext"><span class="otitle">Risc minor</span><span class="obody">Se continuă. La 2 doze pe zi se poate omite doza de seară din ziua precedentă. Reluare la ≥ 6 ore după intervenție.</span></span></label>
+<label class="opt" for="riscmic"><input type="radio" id="riscmic" name="risc"><span class="dbox"></span><span class="otext"><span class="otitle">Risc mic</span><span class="obody">Ultima doză cu 2 zile înainte, fără „bridging”. Reluarea se poate lua în considerare în seara zilei operației.</span></span></label>
+<label class="opt" for="riscmare"><input type="radio" id="riscmare" name="risc"><span class="dbox"></span><span class="otext"><span class="otitle">Risc mare</span><span class="obody">Ultima doză cu 3 zile înainte, fără „bridging”. Reluare la ≥ 48–72 ore; între timp se poate lua în considerare heparină profilactică.</span></span></label>
+</div>
+<details class="why"><summary>De ce se oprește</summary><p>Același motiv ca la grupa anterioară. La funcție renală scăzută, vârstnici sau risc de acumulare (în special dabigatran), oprirea se face cu 12–24 h mai devreme. „Bridging”-ul cu heparină nu se face de rutină.</p></details>
+</section>
+<section>
+<div class="shead"><span class="snum">6</span><h2>Antiinflamatoare nesteroidiene</h2></div>
+<p class="ssub">Calmantele uzuale (AINS).</p>
+<div class="rows">
+<label class="row" for="m6_0"><input type="checkbox" id="m6_0"><span class="box"></span><span class="rtext"><span class="rname">Ibuprofen</span><span class="rbrand">Nurofen, Advil, Ibalgin</span><span class="rstop"><b>Se oprește</b>cu 3 zile înainte</span></span></label>
+<label class="row" for="m6_1"><input type="checkbox" id="m6_1"><span class="box"></span><span class="rtext"><span class="rname">Diclofenac</span><span class="rbrand">Voltaren, Diclac</span><span class="rstop"><b>Se oprește</b>cu 3 zile înainte</span></span></label>
+<label class="row" for="m6_2"><input type="checkbox" id="m6_2"><span class="box"></span><span class="rtext"><span class="rname">Naproxen</span><span class="rbrand">Naprosyn, Aleve</span><span class="rstop"><b>Se oprește</b>cu 3–5 zile înainte</span></span></label>
+<label class="row" for="m6_3"><input type="checkbox" id="m6_3"><span class="box"></span><span class="rtext"><span class="rname">Ketoprofen / Dexketoprofen</span><span class="rbrand">Ketonal, Tador</span><span class="rstop"><b>Se oprește</b>cu 3 zile înainte</span></span></label>
+<label class="row" for="m6_4"><input type="checkbox" id="m6_4"><span class="box"></span><span class="rtext"><span class="rname">Meloxicam / Piroxicam</span><span class="rbrand">Movalis, Feldene</span><span class="rstop"><b>Se oprește</b>cu 5 zile înainte</span></span></label>
+</div>
+<details class="why"><summary>De ce se oprește</summary><p>Afectează funcția trombocitelor și cresc riscul de sângerare; pot afecta și rinichii. Paracetamolul (Panadol) nu face parte din această grupă și poate fi luat de regulă până în ziua operației.</p></details>
+</section>
+<section>
+<div class="shead"><span class="snum">7</span><h2>Suplimente și produse naturiste</h2></div>
+<div class="rows">
+<label class="row" for="m7_0"><input type="checkbox" id="m7_0"><span class="box"></span><span class="rtext"><span class="rname">Omega-3, ulei de pește</span><span class="rbrand">diverse mărci</span><span class="rstop"><b>Se oprește</b>cu 7 zile înainte</span></span></label>
+<label class="row" for="m7_1"><input type="checkbox" id="m7_1"><span class="box"></span><span class="rtext"><span class="rname">Vitamina E în doze mari</span><span class="rbrand">diverse mărci</span><span class="rstop"><b>Se oprește</b>cu 7 zile înainte</span></span></label>
+<label class="row" for="m7_2"><input type="checkbox" id="m7_2"><span class="box"></span><span class="rtext"><span class="rname">Ginkgo biloba</span><span class="rbrand">Bilobil, Tanakan</span><span class="rstop"><b>Se oprește</b>cu 7 zile înainte</span></span></label>
+<label class="row" for="m7_3"><input type="checkbox" id="m7_3"><span class="box"></span><span class="rtext"><span class="rname">Usturoi, ginseng concentrate</span><span class="rbrand">diverse mărci</span><span class="rstop"><b>Se oprește</b>cu 7 zile înainte</span></span></label>
+<label class="row" for="m7_4"><input type="checkbox" id="m7_4"><span class="box"></span><span class="rtext"><span class="rname">Sunătoare</span><span class="rbrand">diverse mărci</span><span class="rstop"><b>Se oprește</b>cu 7–14 zile înainte</span></span></label>
+<label class="row" for="m7_5"><input type="checkbox" id="m7_5"><span class="box"></span><span class="rtext"><span class="rname">Alte suplimente sau ceaiuri medicinale</span><span class="rbrand">notați-le la secțiunea 9</span><span class="rstop"><b>Se oprește</b>de discutat cu medicul</span></span></label>
+</div>
+<details class="why"><summary>De ce se oprește</summary><p>Omega-3, vitamina E, ginkgo, usturoiul și ginsengul cresc riscul de sângerare; sunătoarea interacționează cu medicamentele anestezice. Conținutul lor nu este standardizat, de aceea se opresc toate cu circa o săptămână înainte.</p></details>
+</section>
+<section>
+<div class="shead"><span class="snum">8</span><h2>Tratamente oncologice și imunosupresoare</h2></div>
+<p class="ssub">Nu se opresc la inițiativa pacientului. Bifați și anunțați anestezistul — conduita se stabilește cu oncologul, hematologul sau reumatologul curant.</p>
+<div class="rows">
+<label class="row" for="m8_0"><input type="checkbox" id="m8_0"><span class="box"></span><span class="rtext"><span class="rname">Ribociclib</span><span class="rbrand">Kisqali</span><span class="rstop"><b>Se oprește</b>de regulă cu 7 zile înainte, numai cu avizul oncologului</span><span class="rback"><b>Se reia</b>la 2–3 săptămâni, după vindecarea plăgii și recuperarea neutrofilelor; înainte de reluare se verifică EKG (QTc), transaminazele și electroliții; ideal la începutul unui ciclu nou 21/7</span></span></label>
+<label class="row" for="m8_1"><input type="checkbox" id="m8_1"><span class="box"></span><span class="rtext"><span class="rname">Palbociclib</span><span class="rbrand">Ibrance</span><span class="rstop"><b>Se oprește</b>de regulă cu 7 zile înainte, numai cu avizul oncologului</span><span class="rback"><b>Se reia</b>la aproximativ 3 săptămâni, după vindecarea plăgii și recuperarea neutrofilelor și trombocitelor</span></span></label>
+<label class="row" for="m8_2"><input type="checkbox" id="m8_2"><span class="box"></span><span class="rtext"><span class="rname">Abemaciclib</span><span class="rbrand">Verzenio</span><span class="rstop"><b>Se oprește</b>cel puțin 7 zile înainte la intervențiile majore; dacă există leucopenie, 10–14 zile, cu hemoleucogramă repetată cu 24–48 h preoperator (țintă: neutrofile ≥ 1500/µl, trombocite ≥ 100.000/µl); sub 1000/µl operația electivă se amână. Se administrează continuu, fără săptămână de pauză</span><span class="rback"><b>Se reia</b>la ≥ 14 zile după intervențiile minore și ≥ 21 de zile după cele majore, cu plagă aseptică, fără infecție, și cu valori recuperate; la mastectomie cu reconstrucție sau lambou, 3–4 săptămâni, după suprimarea drenurilor</span></span></label>
+<label class="row" for="m8_3"><input type="checkbox" id="m8_3"><span class="box"></span><span class="rtext"><span class="rname">Tamoxifen</span><span class="rbrand">Nolvadex, Tamoxifen</span><span class="rstop"><b>Se oprește</b>de regulă NU se oprește la pacientele tratate pentru cancer mamar; se asigură tromboprofilaxie. Oprirea se ia în considerare doar dacă riscul tromboembolic depășește clar riscul întreruperii</span><span class="rback"><b>Se reia</b>dacă a fost oprit: la mobilizarea completă, de regulă la 1–2 săptămâni postoperator — criteriul este mobilizarea, nu vindecarea plăgii</span></span></label>
+<label class="row" for="m8_4"><input type="checkbox" id="m8_4"><span class="box"></span><span class="rtext"><span class="rname">Alte terapii oncologice orale</span><span class="rbrand">inhibitori de tirozin-kinază, terapii țintite</span><span class="rstop"><b>Se oprește</b>se stabilește de oncolog</span><span class="rback"><b>Se reia</b>se stabilește de oncolog, de regulă după vindecarea plăgii</span></span></label>
+<label class="row" for="m8_5"><input type="checkbox" id="m8_5"><span class="box"></span><span class="rtext"><span class="rname">Metotrexat</span><span class="rbrand">Methotrexat, Trexan</span><span class="rstop"><b>Se oprește</b>se stabilește de reumatolog sau oncolog</span><span class="rback"><b>Se reia</b>de regulă după vindecarea plăgii, la 1–2 săptămâni</span></span></label>
+<label class="row" for="m8_6"><input type="checkbox" id="m8_6"><span class="box"></span><span class="rtext"><span class="rname">Biologice</span><span class="rbrand">Humira, Enbrel, Remicade, RoActemra (adalimumab, etanercept, infliximab, tocilizumab)</span><span class="rstop"><b>Se oprește</b>se sincronizează cu ciclul de administrare</span><span class="rback"><b>Se reia</b>de regulă la aproximativ 2 săptămâni, după vindecarea plăgii și în absența infecției</span></span></label>
+<label class="row" for="m8_7"><input type="checkbox" id="m8_7"><span class="box"></span><span class="rtext"><span class="rname">Corticoterapie cronică</span><span class="rbrand">Prednison, Medrol</span><span class="rstop"><b>Se oprește</b>NU se oprește — poate fi necesară o doză suplimentară perioperator</span><span class="rback"><b>Se reia</b>se continuă neîntrerupt; se revine la doza obișnuită după perioada de stres chirurgical</span></span></label>
+</div>
+<div class="doc"><span class="doctag">Investigații necesare înainte de operație</span>
+<label class="opt" for="inv1"><input type="checkbox" id="inv1" name="inv"><span class="dbox"></span><span class="otext"><span class="otitle">Hemoleucogramă completă</span></span></label>
+<label class="opt" for="inv2"><input type="checkbox" id="inv2" name="inv"><span class="dbox"></span><span class="otext"><span class="otitle">Profil biochimic — ficat, rinichi</span></span></label>
+<label class="opt" for="inv3"><input type="checkbox" id="inv3" name="inv"><span class="dbox"></span><span class="otext"><span class="otitle">EKG cu interval QT</span></span></label>
+</div>
+<details class="why"><summary>De ce se oprește</summary><p>Pot scădea numărul de globule albe (risc de infecție și de vindecare deficitară a plăgii), pot afecta ficatul și pot prelungi intervalul QT — ribociclibul în mod particular — peste efectul unor medicamente anestezice. Abemaciclibul și tamoxifenul cresc riscul tromboembolic, care se adaugă celui postoperator. Întreruperea are însă consecințe asupra bolii de bază, de aceea decide medicul care le-a prescris. Factorii de creștere granulocitari nu se folosesc pentru a permite o operație electivă la un pacient neutropenic: intervenția se amână.</p></details>
+</section>
+
+  <section>
+    <div class="shead"><span class="snum">9</span><h2>Alte medicamente pe care le iau</h2></div>
+    <p class="ssub">Tensiune, inimă, tiroidă, astm, psihiatrice, contraceptive. Multe se continuă inclusiv în ziua operației, cu o gură mică de apă.</p>
+    <div class="extra">
+      <input type="text" id="x1" placeholder="1. Medicament și doza"><input type="text" id="x2" placeholder="2. Medicament și doza"><input type="text" id="x3" placeholder="3. Medicament și doza"><input type="text" id="x4" placeholder="4. Medicament și doza"><input type="text" id="x5" placeholder="5. Medicament și doza">
+    </div>
+  </section>
+
+  <section id="summary">
+    <div class="shead"><h2>Rezumat</h2></div>
+    <div class="summary">
+      <h3 id="sumhead">Nimic bifat încă</h3>
+      <div id="sumbody"><p class="empty">Pe măsură ce bifați, lista apare aici. Butonul de mai jos salvează formularul întreg, cu tot ce ați bifat.</p></div>
+      <div class="actions">
+        <button class="btn" id="pdf" type="button">Salvează formularul ca PDF</button>
+        <button class="btn ghost" id="copy" type="button">Copiază lista</button>
+        <button class="btn ghost" id="reset" type="button">Șterge tot</button>
+      </div>
+      <p class="toast" id="toast"></p>
+      <p class="hint" id="pdfhint">Se salvează formularul complet, cu toate secțiunile și cu bifele dumneavoastră. Fișierul rezultat nu mai poate fi modificat.</p>
+      <p class="hint" id="altline" hidden>Dacă fișierul nu a apărut în Descărcări, <button class="inlinebtn" id="showimg" type="button">afișați paginile ca imagini</button> și salvați-le de acolo.</p>
+      <div id="pdfout" hidden></div>
+    </div>
+  </section>
+
+  <div class="disclaimer">
+    <b>Important.</b> Formular orientativ, adaptat după materialul UCLA Health – Endocrine Surgery, cu completări din ghidurile FDA/ADA, ASA 2024, ESC și ASBrS. Nu înlocuiește recomandările medicului dumneavoastră. Intervalele pot diferi în funcție de operație și de starea dumneavoastră de sănătate.
+  </div>
+  <p class="foot">Răspunsurile rămân pe telefonul dumneavoastră, în acest browser. Nu se trimit nicăieri și nu sunt vizibile altcuiva.</p>
+</main>
+
+<script>
+(function(){
+/* Everything below reads the questionnaire straight out of the page, so the
+   export always matches what is on screen and needs no embedded data. */
+var KEY="preop-v3";
+var TEXTIDS=["pname","pdate","pdoc","x1","x2","x3","x4","x5"];
+
+function $(id){ return document.getElementById(id); }
+function val(id){ var el=$(id); return el?String(el.value).replace(/^\s+|\s+$/g,""):""; }
+function ownText(el){
+  /* text of the element without its <b> label */
+  if(!el) return "";
+  var out="", n;
+  for(n=el.firstChild;n;n=n.nextSibling){ if(n.nodeType===3) out+=n.nodeValue; }
+  return out.replace(/^\s+|\s+$/g,"");
+}
+function txt(el){ return el?String(el.textContent).replace(/^\s+|\s+$/g,""):""; }
+
+/* ---------- read the document ---------- */
+function readDoc(){
+  var secs=[], nodes=document.querySelectorAll("main section"), i, j;
+  for(i=0;i<nodes.length;i++){
+    var node=nodes[i];
+    if(node.id==="summary") continue;
+    var sec={num:txt(node.querySelector(".snum")),
+             title:txt(node.querySelector(".shead h2")),
+             sub:txt(node.querySelector(".ssub")),
+             rows:[], note:txt(node.querySelector(".note")),
+             docLabel:"", docOpts:[], why:"", free:[]};
+    var rows=node.querySelectorAll(".row");
+    for(j=0;j<rows.length;j++){
+      var r=rows[j], inp=r.querySelector("input");
+      sec.rows.push({
+        on:!!(inp&&inp.checked),
+        name:txt(r.querySelector(".rname")),
+        brand:txt(r.querySelector(".rbrand")),
+        stop:ownText(r.querySelector(".rstop")),
+        back:ownText(r.querySelector(".rback"))
+      });
+    }
+    var doc=node.querySelector(".doc");
+    if(doc){
+      sec.docLabel=txt(doc.querySelector(".doctag"));
+      var opts=doc.querySelectorAll(".opt");
+      for(j=0;j<opts.length;j++){
+        var o=opts[j], oi=o.querySelector("input");
+        sec.docOpts.push({on:!!(oi&&oi.checked),
+                          title:txt(o.querySelector(".otitle")),
+                          body:txt(o.querySelector(".obody"))});
+      }
+    }
+    sec.why=txt(node.querySelector("details.why p"));
+    var free=node.querySelectorAll(".extra input");
+    for(j=0;j<free.length;j++){
+      var v=String(free[j].value).replace(/^\s+|\s+$/g,"");
+      sec.free.push({n:j+1,value:v});
+    }
+    secs.push(sec);
+  }
+  return secs;
+}
+
+function countTicked(){
+  return document.querySelectorAll(".row input:checked").length;
+}
+
+/* ---------- saved answers ---------- */
+function save(){
+  try{
+    var d={c:{},t:{}}, all=document.querySelectorAll("input[type=checkbox],input[type=radio]"), i;
+    for(i=0;i<all.length;i++){ if(all[i].checked) d.c[all[i].id]=1; }
+    for(i=0;i<TEXTIDS.length;i++){ var v=val(TEXTIDS[i]); if(v) d.t[TEXTIDS[i]]=v; }
+    localStorage.setItem(KEY,JSON.stringify(d));
+  }catch(e){}
+}
+function load(){
+  try{
+    var raw=localStorage.getItem(KEY); if(!raw) return;
+    var d=JSON.parse(raw), k, el;
+    for(k in (d.c||{})){ el=$(k); if(el) el.checked=true; }
+    for(k in (d.t||{})){ el=$(k); if(el) el.value=d.t[k]; }
+  }catch(e){}
+}
+
+/* ---------- live summary ---------- */
+function render(){
+  var ticked=countTicked(), c=$("count");
+  if(c) c.textContent=(ticked===1?"1 bifat":ticked+" bifate");
+  var head=$("sumhead"), body=$("sumbody");
+  if(!head||!body) return;
+
+  var secs=readDoc(), blocks=[], i, j;
+  for(i=0;i<secs.length;i++){
+    var sec=secs[i], lines=[];
+    for(j=0;j<sec.rows.length;j++){
+      var r=sec.rows[j];
+      if(r.on) lines.push(r.name+(r.brand?" ("+r.brand.split("—")[0].replace(/^\s+|\s+$/g,"")+")":"")+" — se oprește "+r.stop);
+    }
+    for(j=0;j<sec.docOpts.length;j++){
+      if(sec.docOpts[j].on) lines.push(sec.docOpts[j].title);
+    }
+    for(j=0;j<sec.free.length;j++){
+      if(sec.free[j].value) lines.push(sec.free[j].value);
+    }
+    if(lines.length) blocks.push({title:sec.num+". "+sec.title,lines:lines});
+  }
+
+  body.textContent="";
+  if(!blocks.length){
+    head.textContent="Nimic bifat încă";
+    var p=document.createElement("p");
+    p.className="empty";
+    p.textContent="Pe măsură ce bifați, lista apare aici. Butonul de mai jos salvează formularul întreg, cu tot ce ați bifat.";
+    body.appendChild(p);
+    return;
+  }
+  head.textContent=(ticked===1?"1 medicament bifat":ticked+" medicamente bifate");
+  for(i=0;i<blocks.length;i++){
+    var wrap=document.createElement("div"); wrap.className="sumgroup";
+    var h=document.createElement("h4"); h.textContent=blocks[i].title; wrap.appendChild(h);
+    var ul=document.createElement("ul");
+    for(j=0;j<blocks[i].lines.length;j++){
+      var li=document.createElement("li"); li.textContent=blocks[i].lines[j]; ul.appendChild(li);
+    }
+    wrap.appendChild(ul); body.appendChild(wrap);
+  }
+}
+
+/* ---------- helpers ---------- */
+function roDate(iso){
+  if(!iso) return "";
+  var q=String(iso).split("-");
+  return q.length===3?(q[2]+"."+q[1]+"."+q[0]):iso;
+}
+function pad2(x){ return (x<10?"0":"")+x; }
+function stamp(){
+  var n=new Date();
+  return pad2(n.getDate())+"."+pad2(n.getMonth()+1)+"."+n.getFullYear()+", ora "+pad2(n.getHours())+":"+pad2(n.getMinutes());
+}
+function toast(msg){
+  var t=$("toast"); if(!t) return;
+  t.textContent=msg;
+  setTimeout(function(){ if(t.textContent===msg) t.textContent=""; },5000);
+}
+
+function asText(){
+  var out="CHESTIONAR PREOPERATOR — MEDICAMENTE\n";
+  if(val("pname")) out+="Pacient: "+val("pname")+"\n";
+  if(val("pdate")) out+="Data intervenției: "+roDate(val("pdate"))+"\n";
+  if(val("pdoc")) out+="Medic curant: "+val("pdoc")+"\n";
+  out+="Completat la: "+stamp()+"\n\n";
+  var secs=readDoc(), any=false, i, j;
+  for(i=0;i<secs.length;i++){
+    var sec=secs[i], lines=[];
+    for(j=0;j<sec.rows.length;j++){
+      var r=sec.rows[j];
+      if(!r.on) continue;
+      lines.push("  - "+r.name+(r.brand?" ("+r.brand+")":"")+" — se oprește "+r.stop+(r.back?"; se reia "+r.back:""));
+    }
+    for(j=0;j<sec.docOpts.length;j++){ if(sec.docOpts[j].on) lines.push("  * "+sec.docOpts[j].title); }
+    for(j=0;j<sec.free.length;j++){ if(sec.free[j].value) lines.push("  - "+sec.free[j].value); }
+    if(lines.length){ any=true; out+=sec.num+". "+sec.title+"\n"+lines.join("\n")+"\n\n"; }
+  }
+  if(!any) out+="Nu a fost bifat niciun medicament.\n";
+  return out.replace(/\s+$/,"");
+}
+
+/* ---------- the whole form, drawn on canvas ---------- */
+var PW=1240, PH=1754, MG=86, FOOTR=70;
+var FF='"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif';
+var C_INK="#16222F", C_OFF="#8A9AA8", C_MUTE="#5B6E7D", C_ACC="#1F4E79",
+    C_SOFT="#E4EEF7", C_LINE="#C9D6E2", C_DOC="#2E6B5E", C_DOCBG="#E9F3F0";
+
+function makeDoc(){
+  var pages=[], p=null, y=0;
+  function addPage(){
+    var cv=document.createElement("canvas"); cv.width=PW; cv.height=PH;
+    var cx=cv.getContext("2d");
+    cx.fillStyle="#FFFFFF"; cx.fillRect(0,0,PW,PH); cx.textBaseline="top";
+    p={cv:cv,cx:cx}; pages.push(p); y=MG;
+  }
+  function wrap(cx,s,maxw){
+    var words=String(s).split(/\s+/), out=[], cur="", i;
+    for(i=0;i<words.length;i++){
+      var t=cur?(cur+" "+words[i]):words[i];
+      if(cx.measureText(t).width<=maxw) cur=t;
+      else{ if(cur) out.push(cur); cur=words[i]; }
+    }
+    if(cur) out.push(cur);
+    return out.length?out:[""];
+  }
+  addPage();
+  var api={
+    pages:pages,
+    y:function(){ return y; },
+    room:function(h){ if(y+h>PH-MG-FOOTR){ addPage(); return true; } return false; },
+    gap:function(h){ y+=h; },
+    measure:function(s,o){
+      o=o||{};
+      var size=o.size||22, weight=o.weight||400, ind=o.indent||0;
+      var lh=o.lh||Math.round(size*1.42);
+      p.cx.font=weight+" "+size+"px "+FF;
+      return wrap(p.cx,s,PW-2*MG-ind-(o.pad||0)).length*lh+(o.after===undefined?5:o.after);
+    },
+    text:function(s,o){
+      o=o||{};
+      var size=o.size||22, weight=o.weight||400, color=o.color||C_INK;
+      var ind=o.indent||0, lh=o.lh||Math.round(size*1.42);
+      var font=(o.style?o.style+" ":"")+weight+" "+size+"px "+FF;
+      p.cx.font=font;
+      var lines=wrap(p.cx,s,PW-2*MG-ind), i;
+      for(i=0;i<lines.length;i++){
+        api.room(lh);
+        p.cx.font=font; p.cx.fillStyle=color;
+        p.cx.fillText(lines[i],MG+ind,y);
+        y+=lh;
+      }
+      y+=(o.after===undefined?5:o.after);
+    },
+    band:function(sub){
+      p.cx.fillStyle=C_ACC; p.cx.fillRect(0,0,PW,168);
+      p.cx.fillStyle="#FFFFFF"; p.cx.font="600 40px "+FF;
+      p.cx.fillText("Chestionar preoperator",MG,48);
+      p.cx.fillStyle="#C6DBEF"; p.cx.font="400 22px "+FF;
+      p.cx.fillText(sub,MG,104);
+      y=206;
+    },
+    section:function(num,title){
+      api.room(140);
+      p.cx.fillStyle=C_SOFT; p.cx.fillRect(MG,y,PW-2*MG,44);
+      p.cx.fillStyle=C_ACC; p.cx.font="600 24px "+FF;
+      p.cx.fillText(num+". "+title,MG+14,y+9);
+      y+=58;
+    },
+    box:function(on,round){
+      var bx=MG, by=y+1, s=22;
+      p.cx.lineWidth=2.2;
+      p.cx.strokeStyle=on?C_ACC:C_LINE;
+      if(round){
+        p.cx.beginPath(); p.cx.arc(bx+s/2,by+s/2,s/2,0,6.2832); p.cx.stroke();
+        if(on){ p.cx.fillStyle=C_ACC; p.cx.beginPath(); p.cx.arc(bx+s/2,by+s/2,s/2-5,0,6.2832); p.cx.fill(); }
+      }else{
+        p.cx.strokeRect(bx,by,s,s);
+        if(on){
+          p.cx.fillStyle=C_ACC; p.cx.fillRect(bx,by,s,s);
+          p.cx.strokeStyle="#FFFFFF"; p.cx.lineWidth=2.8;
+          p.cx.beginPath();
+          p.cx.moveTo(bx+5,by+11); p.cx.lineTo(bx+9,by+16); p.cx.lineTo(bx+17,by+6);
+          p.cx.stroke();
+        }
+      }
+    },
+    tintBox:function(h,fill,line){
+      p.cx.fillStyle=fill; p.cx.fillRect(MG,y,PW-2*MG,h);
+      p.cx.strokeStyle=line; p.cx.lineWidth=1; p.cx.strokeRect(MG+.5,y+.5,PW-2*MG-1,h-1);
+    },
+    rule:function(){
+      api.room(18);
+      p.cx.strokeStyle=C_LINE; p.cx.lineWidth=1;
+      p.cx.beginPath(); p.cx.moveTo(MG,y); p.cx.lineTo(PW-MG,y); p.cx.stroke();
+      y+=16;
+    },
+    footers:function(){
+      var i;
+      for(i=0;i<pages.length;i++){
+        var cx=pages[i].cx;
+        cx.strokeStyle=C_LINE; cx.lineWidth=1;
+        cx.beginPath(); cx.moveTo(MG,PH-MG-30); cx.lineTo(PW-MG,PH-MG-30); cx.stroke();
+        cx.font="400 17px "+FF; cx.fillStyle=C_MUTE;
+        cx.fillText("Chestionar preoperator completat — document generat automat, needitabil",MG,PH-MG-18);
+        var lab="Pagina "+(i+1)+" din "+pages.length;
+        cx.fillText(lab,PW-MG-cx.measureText(lab).width,PH-MG-18);
+      }
+    }
+  };
+  return api;
+}
+
+function drawAll(){
+  var d=makeDoc(), secs=readDoc(), i, j;
+  d.band("Formular complet, cu răspunsurile pacientului");
+
+  var info=[["Pacient",val("pname")||"—"],
+            ["Data intervenției",roDate(val("pdate"))||"—"],
+            ["Medic curant / chirurg",val("pdoc")||"—"],
+            ["Completat la",stamp()],
+            ["Medicamente bifate",String(countTicked())]];
+  for(i=0;i<info.length;i++){
+    d.text(info[i][0].toUpperCase(),{size:15,weight:500,color:C_MUTE,after:0});
+    d.text(info[i][1],{size:23,weight:500,after:10});
+  }
+  d.rule();
+
+  for(i=0;i<secs.length;i++){
+    var sec=secs[i];
+    d.section(sec.num,sec.title);
+    if(sec.sub) d.text(sec.sub,{size:19,color:C_MUTE,after:8});
+
+    for(j=0;j<sec.rows.length;j++){
+      var r=sec.rows[j];
+      var ink=r.on?C_INK:C_OFF, soft=r.on?C_MUTE:C_OFF;
+      var h=d.measure(r.name,{size:23,weight:600,indent:42,after:1})
+           +(r.brand?d.measure(r.brand,{size:19,indent:42,after:4}):0)
+           +d.measure("Se oprește: "+r.stop,{size:19,indent:42,after:4});
+      d.room(Math.min(h+10,300));
+      d.box(r.on,false);
+      d.text(r.name,{size:23,weight:600,color:ink,indent:42,after:1});
+      if(r.brand) d.text(r.brand,{size:19,color:soft,indent:42,after:4});
+      d.text("Se oprește: "+r.stop,{size:19,color:ink,indent:42,after:r.back?3:12});
+      if(r.back) d.text("Se reia: "+r.back,{size:19,color:ink,indent:42,after:12});
+    }
+
+    if(sec.note){
+      var nh=d.measure(sec.note,{size:19,indent:14})+18;
+      d.room(nh+10);
+      d.tintBox(nh,C_SOFT,C_LINE);
+      d.gap(10);
+      d.text(sec.note,{size:19,color:C_INK,indent:14,after:14});
+    }
+
+    if(sec.docOpts.length){
+      d.gap(6);
+      d.text(sec.docLabel,{size:16,weight:500,color:C_DOC,after:5});
+      for(j=0;j<sec.docOpts.length;j++){
+        var o=sec.docOpts[j];
+        d.room(60);
+        d.box(o.on,true);
+        d.text(o.title,{size:21,weight:600,color:o.on?C_INK:C_OFF,indent:42,after:o.body?1:9});
+        if(o.body) d.text(o.body,{size:18,color:o.on?C_MUTE:C_OFF,indent:42,after:9});
+      }
+    }
+
+    if(sec.free.length){
+      var filled=0;
+      for(j=0;j<sec.free.length;j++){
+        if(!sec.free[j].value) continue;
+        filled++;
+        d.room(50);
+        d.box(true,false);
+        d.text(sec.free[j].value,{size:22,color:C_INK,indent:42,after:10});
+      }
+      if(!filled) d.text("Pacientul nu a notat alte medicamente.",{size:20,color:C_OFF,after:10});
+    }
+
+    if(sec.why){
+      d.gap(4);
+      d.text("De ce se oprește: "+sec.why,{size:17,color:C_MUTE,style:"italic",after:16});
+    }
+  }
+
+  d.gap(8);
+  d.room(210);
+  d.rule();
+  d.text("Formular orientativ, adaptat după materialul UCLA Health – Endocrine Surgery, cu completări din ghidurile FDA/ADA, ASA 2024, ESC și ASBrS. Nu înlocuiește recomandările medicului. Intervalele pot diferi în funcție de operație și de starea de sănătate a pacientului. Momentul opririi și al reluării se stabilește de chirurg împreună cu medicul anestezist.",
+    {size:17,color:C_MUTE,after:0});
+  d.footers();
+  return d.pages;
+}
+
+/* ---------- canvas -> JPEG -> PDF, with no external library ---------- */
+function canvasJpeg(cv){
+  return new Promise(function(resolve,reject){
+    if(cv.toBlob){
+      cv.toBlob(function(blob){
+        if(!blob){ reject(new Error("nocanvas")); return; }
+        if(blob.arrayBuffer){
+          blob.arrayBuffer().then(function(ab){ resolve(new Uint8Array(ab)); },reject);
+        }else{
+          var fr=new FileReader();
+          fr.onload=function(){ resolve(new Uint8Array(fr.result)); };
+          fr.onerror=function(){ reject(new Error("noread")); };
+          fr.readAsArrayBuffer(blob);
+        }
+      },"image/jpeg",0.9);
+    }else{
+      try{
+        var bin=atob(cv.toDataURL("image/jpeg",0.9).split(",")[1]);
+        var u=new Uint8Array(bin.length), i;
+        for(i=0;i<bin.length;i++) u[i]=bin.charCodeAt(i);
+        resolve(u);
+      }catch(err){ reject(err); }
+    }
+  });
+}
+
+function assemblePdf(images){
+  var W=595.28, H=841.89, parts=[], length=0, i;
+  function putBytes(u8){ parts.push(u8); length+=u8.length; }
+  function put(str){
+    var u=new Uint8Array(str.length), k;
+    for(k=0;k<str.length;k++) u[k]=str.charCodeAt(k)&0xFF;
+    putBytes(u);
+  }
+  function pad10(n){ var s=String(n); while(s.length<10) s="0"+s; return s; }
+
+  var n=images.length, total=2+3*n, offsets=new Array(total+1);
+  put("%PDF-1.4\n");
+  putBytes(new Uint8Array([0x25,0xE2,0xE3,0xCF,0xD3,0x0A]));
+
+  offsets[1]=length;
+  put("1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n");
+  var kids="";
+  for(i=0;i<n;i++) kids+=(i?" ":"")+(3+3*i)+" 0 R";
+  offsets[2]=length;
+  put("2 0 obj\n<< /Type /Pages /Count "+n+" /Kids ["+kids+"] >>\nendobj\n");
+
+  for(i=0;i<n;i++){
+    var pObj=3+3*i, cObj=pObj+1, iObj=pObj+2;
+    var stream="q "+W.toFixed(2)+" 0 0 "+H.toFixed(2)+" 0 0 cm /Im0 Do Q\n";
+    offsets[pObj]=length;
+    put(pObj+" 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 "+W.toFixed(2)+" "+H.toFixed(2)+"]"
+      +" /Resources << /XObject << /Im0 "+iObj+" 0 R >> >> /Contents "+cObj+" 0 R >>\nendobj\n");
+    offsets[cObj]=length;
+    put(cObj+" 0 obj\n<< /Length "+stream.length+" >>\nstream\n"+stream+"endstream\nendobj\n");
+    offsets[iObj]=length;
+    put(iObj+" 0 obj\n<< /Type /XObject /Subtype /Image /Width "+PW+" /Height "+PH
+      +" /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length "+images[i].length+" >>\nstream\n");
+    putBytes(images[i]);
+    put("\nendstream\nendobj\n");
+  }
+
+  var xref=length;
+  put("xref\n0 "+(total+1)+"\n0000000000 65535 f \n");
+  for(i=1;i<=total;i++) put(pad10(offsets[i])+" 00000 n \n");
+  put("trailer\n<< /Size "+(total+1)+" /Root 1 0 R >>\nstartxref\n"+xref+"\n%%EOF\n");
+
+  var out=new Uint8Array(length), at=0;
+  for(i=0;i<parts.length;i++){ out.set(parts[i],at); at+=parts[i].length; }
+  return new Blob([out],{type:"application/pdf"});
+}
+
+function pdfName(){
+  var nm=val("pname").replace(/[^A-Za-z0-9ĂÂÎȘȚăâîșț ]/g,"").replace(/\s+/g,"-");
+  var n=new Date();
+  var day=n.getFullYear()+"-"+pad2(n.getMonth()+1)+"-"+pad2(n.getDate());
+  return ("Chestionar-preoperator"+(nm?"-"+nm:"")+"-"+day+".pdf").slice(0,120);
+}
+
+var builtPages=null;
+function makePdfBlob(){
+  var ready;
+  try{ ready=(document.fonts&&document.fonts.ready)?document.fonts.ready:Promise.resolve(); }
+  catch(e){ ready=Promise.resolve(); }
+  return Promise.resolve(ready)["catch"](function(){}).then(function(){
+    builtPages=drawAll();
+    var jobs=[], i;
+    for(i=0;i<builtPages.length;i++) jobs.push(canvasJpeg(builtPages[i].cv));
+    return Promise.all(jobs);
+  }).then(function(images){ return assemblePdf(images); });
+}
+
+/* ---------- saving ---------- */
+var saver=null;
+function findSaver(){
+  if(saver) return Promise.resolve(saver);
+  if(!(window.claude&&typeof window.claude.use==="function")) return Promise.resolve(null);
+  try{
+    return Promise.resolve(window.claude.use("downloads")).then(function(ns){
+      if(ns) saver=ns;
+      return saver;
+    },function(){ return null; });
+  }catch(e){ return Promise.resolve(null); }
+}
+(function poll(n){
+  if(saver||n>20) return;
+  findSaver().then(function(ns){ if(!ns) setTimeout(function(){ poll(n+1); },500); });
+})(0);
+
+function showPages(pages){
+  var box=$("pdfout");
+  if(!box||!pages) return;
+  box.textContent="";
+  var note=document.createElement("p");
+  note.className="pvnote";
+  note.textContent="Salvarea directă nu este disponibilă aici. Apăsați lung pe fiecare pagină de mai jos (pe calculator: clic dreapta) și alegeți „Salvează imaginea”, apoi trimiteți-le medicului.";
+  box.appendChild(note);
+  for(var i=0;i<pages.length;i++){
+    var img=document.createElement("img");
+    img.className="pv";
+    img.alt="Chestionar completat, pagina "+(i+1);
+    try{ img.src=pages[i].cv.toDataURL("image/jpeg",0.9); }catch(e){}
+    box.appendChild(img);
+  }
+  box.hidden=false;
+  try{ box.scrollIntoView({behavior:"smooth",block:"start"}); }catch(e){}
+}
+
+/* ---------- wiring ---------- */
+load();
+render();
+
+document.addEventListener("change",function(ev){
+  if(ev.target&&ev.target.tagName==="INPUT"){ save(); render(); }
+});
+document.addEventListener("input",function(ev){
+  if(ev.target&&ev.target.tagName==="INPUT"){ save(); render(); }
+});
+
+var ts=$("toSummary");
+if(ts) ts.addEventListener("click",function(){
+  var el=$("summary");
+  if(el){ try{ el.scrollIntoView({behavior:"smooth",block:"start"}); }catch(e){ el.scrollIntoView(); } }
+});
+
+function selectFallback(s){
+  var ta=document.createElement("textarea");
+  ta.value=s; ta.setAttribute("readonly","");
+  ta.style.cssText="position:fixed;left:8px;right:8px;bottom:8px;height:40vh;font:13px monospace;z-index:99";
+  document.body.appendChild(ta); ta.focus(); ta.select();
+  toast("Copierea automată nu e permisă aici. Textul e selectat — apăsați Copiază, apoi atingeți în altă parte.");
+  ta.addEventListener("blur",function(){ if(ta.parentNode) ta.parentNode.removeChild(ta); });
+}
+
+var cp=$("copy");
+if(cp) cp.addEventListener("click",function(){
+  var s=asText();
+  if(navigator.clipboard&&navigator.clipboard.writeText){
+    navigator.clipboard.writeText(s).then(function(){
+      toast("Lista a fost copiată. O puteți lipi într-un mesaj.");
+    },function(){ selectFallback(s); });
+  }else selectFallback(s);
+});
+
+var armed=false, rs=$("reset");
+if(rs) rs.addEventListener("click",function(){
+  if(!armed){
+    armed=true; rs.textContent="Sigur ștergeți tot?";
+    toast("Atingeți din nou pentru a confirma.");
+    setTimeout(function(){ armed=false; rs.textContent="Șterge tot"; },5000);
+    return;
+  }
+  var all=document.querySelectorAll("input[type=checkbox],input[type=radio]"), i;
+  for(i=0;i<all.length;i++) all[i].checked=false;
+  for(i=0;i<TEXTIDS.length;i++){ var el=$(TEXTIDS[i]); if(el) el.value=""; }
+  try{ localStorage.removeItem(KEY); }catch(e){}
+  var out=$("pdfout"); if(out){ out.hidden=true; out.textContent=""; }
+  armed=false; rs.textContent="Șterge tot"; render();
+  toast("Formularul a fost golit.");
+});
+
+var si=$("showimg");
+if(si) si.addEventListener("click",function(){
+  if(builtPages){ showPages(builtPages); return; }
+  si.disabled=true;
+  makePdfBlob().then(function(){ showPages(builtPages); })["catch"](function(){
+    toast("Paginile nu au putut fi generate.");
+  }).then(function(){ si.disabled=false; });
+});
+
+var pb=$("pdf");
+if(pb) pb.addEventListener("click",function(){
+  if(pb.getAttribute("data-busy")) return;
+  pb.setAttribute("data-busy","1");
+  var was=pb.textContent;
+  pb.textContent="Se pregătește…";
+  builtPages=null;
+
+  findSaver().then(function(){
+    return makePdfBlob();
+  }).then(function(blob){
+    if(saver){
+      return saver.save({filename:pdfName(),data:blob}).then(function(){
+        toast("Formularul complet a fost salvat ca PDF. Îl puteți trimite ca atașament.");
+      });
+    }
+    var url=null;
+    try{ url=URL.createObjectURL(blob); }catch(e){}
+    var a=document.createElement("a");
+    /* outside the Claude viewer an ordinary download link works */
+    if(url&&!window.claude&&("download" in a)){
+      a.href=url; a.download=pdfName();
+      a.style.display="none";
+      document.body.appendChild(a);
+      try{ a.click(); }catch(e){}
+      setTimeout(function(){
+        if(a.parentNode) a.parentNode.removeChild(a);
+        try{ URL.revokeObjectURL(url); }catch(e){}
+      },8000);
+      var alt=$("altline"); if(alt) alt.hidden=false;
+      toast("Formularul a fost salvat ca PDF, în Descărcări.");
+      return;
+    }
+    var win=url?window.open(url,"_blank"):null;
+    if(win){
+      var alt2=$("altline"); if(alt2) alt2.hidden=false;
+      toast("PDF-ul s-a deschis într-o filă nouă. Salvați-l de acolo.");
+      return;
+    }
+    showPages(builtPages);
+    toast("Formularul completat este afișat mai jos, gata de salvat ca imagini.");
+  })["catch"](function(err){
+    var code=err&&err.code;
+    if(code==="declined") toast("Salvarea a fost anulată.");
+    else if(code==="rate_limited") toast("Încercați din nou peste câteva secunde.");
+    else if(builtPages){ showPages(builtPages); toast("Salvarea directă nu a reușit. Formularul este afișat mai jos."); }
+    else toast("PDF-ul nu a putut fi generat. Folosiți „Copiază lista”.");
+  }).then(function(){
+    pb.removeAttribute("data-busy"); pb.textContent=was;
+  });
+});
+})();
+</script>
+
+</body>
+</html>
